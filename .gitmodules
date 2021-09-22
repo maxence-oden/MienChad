@@ -1,0 +1,3 @@
+[submodule "Vowoxels"]
+	path = Vowoxels
+	url = git@github.com:DaemonOnUnix/Vowoxels.git
