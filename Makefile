@@ -7,7 +7,7 @@ INCLUDES = -IVowoxels/lib/include -IVowoxels/src/include -Iinclude
 
 CC = gcc-9
 CFLAGS = -Wall -Wextra -O0 -g $(INCLUDES) $(shell pkg-config --cflags glfw3 gl sdl2)
-LDFLAGS = $(shell pkg-config --libs gl glew glfw3 sdl2 SDL2_image) -pthread -lm
+LDFLAGS = $(shell pkg-config --libs gl glew glfw3 sdl2 SDL2_image) -pthread -lm -L. -lvowoxels
 
 BUILD = build
 
@@ -33,6 +33,8 @@ NODEBUG: $(BIN)
 	@./$<
 
 $(BIN): $(OBJ)
+	@make -C Vowoxels
+	@mv Vowoxels/vowoxels.a libvowoxels.a
 	@$(CC) $(OBJ) $(LDFLAGS) -o $@
 
 $(BUILD)/%.o: %.c
@@ -42,4 +44,5 @@ $(BUILD)/%.o: %.s
 	@nasm $(ASMPARAM) -o $@ $<
 
 clean:
+	@make clean -C Vowoxels
 	@rm -rf $(BUILD) $(BIN)

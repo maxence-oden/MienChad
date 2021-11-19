@@ -2,6 +2,7 @@ build/
 build/*
 
 *.o
+*.a
 *.elf
 
 .vscode/settings.json
