@@ -27,6 +27,8 @@ EngineData* data;
 
 #include <SDL_image.h>
 
+#define MOUSE_COOLDOWN 0.1f
+
 bool viewMode = false;
 bool firstMouse = true;
 bool mouseEnabled = true;
@@ -34,7 +36,9 @@ float lastX = 400;
 float lastY = 300;
 float yaw;
 float pitch;
-float mouseSpeed = 20.0f;
+float mouseSpeed = 10.0f;
+float cooldown = MOUSE_COOLDOWN;
+double lastFrame = 0;
 
 void processInput(float deltaTime){
 	EngineData* data = getEngineData();
@@ -56,16 +60,98 @@ void processInput(float deltaTime){
 		glfwSetInputMode(data->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		mouseEnabled = false;
 	}
-	if (glfwGetMouseButton(data->window, GLFW_MOUSE_BUTTON_LEFT)){
+	if (glfwGetMouseButton(data->window, GLFW_MOUSE_BUTTON_RIGHT) && cooldown < 0){
 		if(mouseEnabled){
+			cooldown = MOUSE_COOLDOWN;
 			Ray r;
 			r.origin = vec3$(data->camera->cameraPos.x,data->camera->cameraPos.y,data->camera->cameraPos.z);
 			r.lenght = 10.0f;
 			r.dir = vec3$(data->camera->cameraFront.x,data->camera->cameraFront.y,data->camera->cameraFront.z);
 			RaycastHit hit;
 			if(RayCast(r, &hit)){
-				LOG_INFO("HIT voxel x: %f, y: %f, z: %f", hit.point.x, hit.point.y, hit.point.z)
-				place_voxel_to_hit(hit, 0);
+				LOG_INFO("HIT voxel x: %f, y: %f, z: %f", hit.hitpoint.x, hit.hitpoint.y, hit.hitpoint.z)
+				//debugDrawLine(hit.hitpoint, vec3_add(hit.hitpoint, hit.normal), vec3$(0,0,1), 10);
+				hit.hitpoint.x = floor(hit.hitpoint.x);
+				hit.hitpoint.y = floor(hit.hitpoint.y);
+				hit.hitpoint.z = floor(hit.hitpoint.z);
+				//debugDrawBox(hit.hitpoint, vec3$(1,1,1), vec3$(0,1,0), 10);
+				Chunk *hitchunk = hit.object.Chunk.chunk;
+				if (hit.normal.x < 0)
+				{
+					if (hit.object.Chunk.local_block_coord.x == 0)
+					{
+						hit.object.Chunk.local_block_coord.x = CHUNK_DIMENSION - 1;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x - 1, hitchunk->chunk_y, hitchunk->chunk_z);
+					}
+					else
+						hit.object.Chunk.local_block_coord.x--;
+				}
+				else if (hit.normal.x > 0)
+				{
+					if (hit.object.Chunk.local_block_coord.x == CHUNK_DIMENSION - 1)
+					{
+						hit.object.Chunk.local_block_coord.x = 0;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x + 1, hitchunk->chunk_y, hitchunk->chunk_z);
+					}
+					else
+						hit.object.Chunk.local_block_coord.x++;
+				}
+				if (hit.normal.y < 0)
+				{
+					if (hit.object.Chunk.local_block_coord.y == 0)
+					{
+						hit.object.Chunk.local_block_coord.y = CHUNK_DIMENSION - 1;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x, hitchunk->chunk_y - 1, hitchunk->chunk_z);
+					}
+					else
+						hit.object.Chunk.local_block_coord.y--;
+				}
+				else if (hit.normal.y > 0)
+				{
+					if (hit.object.Chunk.local_block_coord.y == CHUNK_DIMENSION - 1)
+					{
+						hit.object.Chunk.local_block_coord.y = 0;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x, hitchunk->chunk_y + 1, hitchunk->chunk_z);
+					}
+					else
+						hit.object.Chunk.local_block_coord.y++;
+				}
+				if (hit.normal.z < 0)
+				{
+					if (hit.object.Chunk.local_block_coord.z == 0)
+					{
+						hit.object.Chunk.local_block_coord.z = CHUNK_DIMENSION - 1;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x, hitchunk->chunk_y, hitchunk->chunk_z - 1);
+					}
+					else
+						hit.object.Chunk.local_block_coord.z--;
+				}
+				else if (hit.normal.z > 0)
+				{
+					if (hit.object.Chunk.local_block_coord.z == CHUNK_DIMENSION - 1)
+					{
+						hit.object.Chunk.local_block_coord.z = 0;
+						hit.object.Chunk.chunk = getChunk(hitchunk->chunk_x, hitchunk->chunk_y, hitchunk->chunk_z + 1);
+					}
+					else
+						hit.object.Chunk.local_block_coord.z++;
+				}
+				//debugDrawBox(hit.hitpoint, vec3$(1,1,1), vec3$(1,0,0), 10);
+				place_voxel_to_coord(hit.object.Chunk.chunk, hit.object.Chunk.local_block_coord, 2);
+			}
+		}
+	}
+	if (glfwGetMouseButton(data->window, GLFW_MOUSE_BUTTON_LEFT) && cooldown < 0){
+		if(mouseEnabled){
+			cooldown = MOUSE_COOLDOWN;
+			Ray r;
+			r.origin = vec3$(data->camera->cameraPos.x,data->camera->cameraPos.y,data->camera->cameraPos.z);
+			r.lenght = 10.0f;
+			r.dir = vec3$(data->camera->cameraFront.x,data->camera->cameraFront.y,data->camera->cameraFront.z);
+			RaycastHit hit;
+			if(RayCast(r, &hit)){
+				LOG_INFO("HIT voxel x: %f, y: %f, z: %f", hit.hitpoint.x, hit.hitpoint.y, hit.hitpoint.z)
+				place_voxel_to_coord(hit.object.Chunk.chunk, hit.object.Chunk.local_block_coord, 0);
 			}
 		}else
 		{
@@ -104,6 +190,9 @@ void processInput(float deltaTime){
 		// Set cursor middle of the screen	
 		glfwSetCursorPos(data->window, data->width/2.0f, data->height/2.0f);
 	}
+    double currentFrame = glfwGetTime();
+	cooldown -= currentFrame - lastFrame;
+    lastFrame = currentFrame;
 }
 
 void drawLoop(){
@@ -167,7 +256,7 @@ int main() {
 	data->shaderProgram = bindShader();
     
     // Texture
-    unsigned int atlasnb = createAtlas("res/terrain.png", 16, 16, 0, 0, 3);
+    unsigned int atlasnb = createAtlas("res/terrain.png", 16, 16, 0, 0, 30);
     setVoxelTileByIndex(atlasnb, 1, 3, FACE_SIDES);
     setVoxelTileByIndex(atlasnb, 1, 191, FACE_UP);
     setVoxelTileByIndex(atlasnb, 1, 2, FACE_DOWN);

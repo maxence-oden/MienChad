@@ -27,6 +27,8 @@ $(shell mkdir -p $(addprefix $(BUILD)/,$(SRCDIRS)))
 
 all: NODEBUG
 
+warning: $(BIN)
+
 .PHONY: all clean NODEBUG clean_deps
 
 NODEBUG: $(BIN)
